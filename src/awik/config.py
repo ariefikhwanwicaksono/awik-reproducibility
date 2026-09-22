@@ -1,7 +1,7 @@
 """Global constants: Answer Set, clustering parameters, batch size.
 
 Parameter derivations (k, eps, minPts, Mahalanobis threshold) are label-free
-and documented in notebooks/02_layer1_justification.ipynb and docs/methodology.md.
+and documented in notebooks/02_layer1_justification.ipynb and the accompanying manuscript.
 """
 
 ANSWER_SET = {
@@ -48,7 +48,7 @@ DEFAULT_MINPTS = 4
 # Mahalanobis^2 flagging threshold. Empirical, fixed: median of the 99th-percentile
 # within-cluster Mahalanobis^2 across 61 cluster-weeks, label-free (IQR [22.55, 79.49]).
 # NOT the theoretical chi2.ppf(0.99, df=2)=9.21 -- rejected because Shapiro-Wilk
-# rejects PC1 normality in 91.8% of cluster-weeks. See docs/methodology.md.
+# rejects PC1 normality in 91.8% of cluster-weeks. See the accompanying manuscript.
 DEFAULT_MAH_THRESH = 31.75
 
 # Neo4j batch size (avoids the ~716MB per-transaction OOM limit).

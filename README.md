@@ -82,3 +82,10 @@ Answer Set (`ANSWER_SET`) is only ever used for evaluation, never for tuning,
 with one deliberate exception: the NSGA-II-tuned Isolation Forest baseline in
 notebook 06 is supervised by design, included for comparison against a
 category of methods that legitimately does use labels.
+
+## Data attribution
+
+The CERT r6.2 dataset is Copyright 2011 ExactData, LLC, All Rights Reserved, and
+is used under its End User Agreement. This repository contains no CERT data
+except the six Answer Set account identifiers in `src/awik/config.py`, which are
+reproduced only to the minimal extent needed to describe the reported evaluation.

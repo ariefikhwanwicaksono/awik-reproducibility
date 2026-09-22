@@ -3,14 +3,14 @@
 // build_q_g5, Q_OWNER, Q_G6) for standalone reading/execution -- no query
 // logic changed here, only presentation.
 //
-// NAMING NOTE (read this before matching against the reviewer's "G1-G5" ask):
+// NAMING NOTE (read this before matching against the paper's "G1-G5" numbering):
 // the code below uses G1, G2, G3, G5, G6 (G4 is permanently disabled -- it
 // depended on the removed VISITED_URL relation, see features.py). The
 // MANUSCRIPT renumbers to close that gap: code G5 (mass-email near-miss) is
 // called G4 in the paper, and code G6 (attacker-centric lateral) is called G5
 // in the paper. Either way there are exactly 5 ACTIVE query patterns; which
 // label you use (code-internal vs. paper) just depends on which document
-// you're cross-referencing. Full mapping: docs/methodology.md.
+// you're cross-referencing. The mapping above is complete.
 //
 // $batch is a list of user_id strings, bound via driver-side parameters in
 // src/awik/neo4j_client.py:run_batched_query (UNWIND $batch AS uid). Replace
