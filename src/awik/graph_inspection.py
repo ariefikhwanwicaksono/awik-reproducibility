@@ -2,6 +2,18 @@
 
 G4 (analyst-maintained exfiltration watchlist) is permanently disabled -- it depended
 on the VISITED_URL relation, removed from the pipeline (see features.py docstring).
+
+Q_G1, Q_G2, Q_G3A, Q_G3B and the G4/code-G5 query built by build_q_g5() previously
+carried a per-batch `LIMIT` (200/200/100/100/300). That limit bound in nearly every
+batch at the population sizes this pipeline actually examines (e.g. G2 in the
+routing-disabled condition returned the LIMIT-200 cap in 22/22 batches), so the
+"matched" counts it produced were a truncated lower bound, not the true match count,
+and the union (`graph_confirmed`) additionally became dependent on `PYTHONHASHSEED`
+through batch composition. Both LIMIT clauses and that hash dependency are removed
+here; callers must now pass explicitly sorted candidate lists (never a bare
+`list(some_set)`) so results are reproducible independent of Python's set-iteration
+order. See fig3_validation/round2/REPORT.md and round3/REPORT.md for the
+measurements this fix is based on.
 """
 
 import pandas as pd
@@ -18,7 +30,7 @@ WITH suspect, r1, pc, head(collect(owner)) AS primary_owner
 RETURN suspect.user_id AS Suspect, pc.pc_id AS Target,
        primary_owner.user_id AS Evidence,
        'G1_AfterHours_Lateral' AS Pattern, r1.timestamp AS Timestamp
-ORDER BY r1.timestamp LIMIT 200
+ORDER BY r1.timestamp
 """
 
 Q_G2 = """
@@ -34,7 +46,7 @@ WHERE r3.timestamp > r1.timestamp
 RETURN suspect.user_id AS Suspect, pc.pc_id AS Target,
        owner_node.user_id AS Evidence,
        'G2_Lateral_MassEmail' AS Pattern, r1.timestamp AS Timestamp
-ORDER BY r1.timestamp LIMIT 200
+ORDER BY r1.timestamp
 """
 
 Q_G3A = """
@@ -42,14 +54,14 @@ UNWIND $batch AS uid
 MATCH (suspect:User {user_id: uid})-[r1:LOGGED_ON_TO]->(pc:PC)
       <-[r2:LOGGED_ON_TO]-(owner:User)
 WHERE owner.user_id <> uid AND r1.timestamp.hour >= 7 AND r1.timestamp.hour <= 17
-RETURN DISTINCT suspect.user_id AS Suspect, pc.pc_id AS Target_PC LIMIT 100
+RETURN DISTINCT suspect.user_id AS Suspect, pc.pc_id AS Target_PC
 """
 
 Q_G3B = """
 UNWIND $batch AS uid
 MATCH (suspect:User {user_id: uid})-[r:SENT_EMAIL]->(email_node)
 WHERE r.size > 100000 AND r.activity = 'Send'
-RETURN DISTINCT suspect.user_id AS Suspect, r.size AS Email_Size LIMIT 100
+RETURN DISTINCT suspect.user_id AS Suspect, r.size AS Email_Size
 """
 
 Q_OWNER = """
@@ -92,7 +104,7 @@ WHERE r.activity = 'Send' AND r.size >= %d
 RETURN suspect.user_id AS Suspect, r.size AS Email_Size,
        r.timestamp.year AS Year, r.timestamp.week AS Week,
        'G5_MassEmail_NearMiss' AS Pattern, r.timestamp AS Timestamp
-ORDER BY r.size DESC LIMIT 300
+ORDER BY r.size DESC
 """ % int(email_p99))
 
 
@@ -101,6 +113,10 @@ def fetch_owner_of(conn):
 
 
 def run_g1_g5(conn, candidates_graph, email_near_miss, q_g5, batch_size=50):
+    """candidates_graph and email_near_miss must be sorted (not a bare `list(some_set)`):
+    Q_G1/Q_G2/Q_G3A/Q_G3B no longer carry a per-batch LIMIT, so batch composition can no
+    longer truncate results -- but callers should still pass a deterministic order so
+    which batch a warning/error refers to is reproducible run to run."""
     df_g1 = run_batched_query(conn, Q_G1, candidates_graph, batch_size, "G1")
     df_g2 = run_batched_query(conn, Q_G2, candidates_graph, batch_size, "G2")
     df_g3a = run_batched_query(conn, Q_G3A, candidates_graph, 25, "G3a")

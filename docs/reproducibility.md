@@ -48,6 +48,22 @@ compiling this list; it's a documentation pass only.
   `src/awik/stats_utils.py`, `src/awik/features.py` -- no stochastic operations.
 - DBSCAN itself has no seed parameter (deterministic given input and `eps`/`min_samples`).
 
+## Non-determinism that WAS present, and is fixed on this branch
+
+`src/awik/graph_inspection.py` has no RNG, but until this branch its G1/G2/G3/G4(code-G5)
+queries each carried a per-batch `LIMIT` (200/200/100/100/300), and callers passed candidate
+lists built from `list(some_set)`. Python randomizes string-hash seeding per process
+(`PYTHONHASHSEED`), which changes `set` iteration order and therefore which accounts land in
+which batch; when a batch's true match count exceeds its `LIMIT`, the accounts cut off depend
+on that batch composition. Measured effect on CERT r6.2 (`fig3_validation/round2/REPORT.md`,
+`round3/REPORT.md`): the routing-active graph-confirmed population varied 304-307 across
+`PYTHONHASHSEED` values with the LIMIT in place, and G1/G2 batches hit their LIMIT in
+essentially 100% of batches examined -- i.e. the reported match counts for those two queries
+were a truncated lower bound, not the true count. This branch removes the `LIMIT` clauses and
+requires callers to pass `sorted()` candidate lists, which empirically restores exact,
+seed-independent reproducibility (`round3/REPORT.md` section 2: identical account-ID sets
+across 5 seeds + sorted input, both before and after this fix's population sizes).
+
 ## Net effect
 
 Every `PCA`/`KMeans` call across the entire repo uses seed **42**, with zero

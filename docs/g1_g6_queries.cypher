@@ -1,7 +1,11 @@
 // Layer 2 surgical contextual graph inspection: all Cypher queries, extracted
 // verbatim from src/awik/graph_inspection.py (Q_G1, Q_G2, Q_G3A, Q_G3B,
 // build_q_g5, Q_OWNER, Q_G6) for standalone reading/execution -- no query
-// logic changed here, only presentation.
+// logic changed here, only presentation. Per-batch LIMIT clauses (previously
+// 200/200/100/100/300 on G1/G2/G3a/G3b/G4-code-G5) were removed -- they bound in
+// nearly every batch at this pipeline's population sizes, making "matched" counts a
+// truncated lower bound and the union dependent on PYTHONHASHSEED-driven batch order.
+// See fig3_validation/round2/REPORT.md and round3/REPORT.md.
 //
 // NAMING NOTE (read this before matching against the paper's "G1-G5" numbering):
 // the code below uses G1, G2, G3, G5, G6 (G4 is permanently disabled -- it
@@ -30,7 +34,7 @@ WITH suspect, r1, pc, head(collect(owner)) AS primary_owner
 RETURN suspect.user_id AS Suspect, pc.pc_id AS Target,
        primary_owner.user_id AS Evidence,
        'G1_AfterHours_Lateral' AS Pattern, r1.timestamp AS Timestamp
-ORDER BY r1.timestamp LIMIT 200;
+ORDER BY r1.timestamp;
 
 // ============================================================================
 // G2 (code) = G2 (paper) -- Lateral Login -> Mass Email (within 24h)
@@ -48,7 +52,7 @@ WHERE r3.timestamp > r1.timestamp
 RETURN suspect.user_id AS Suspect, pc.pc_id AS Target,
        owner_node.user_id AS Evidence,
        'G2_Lateral_MassEmail' AS Pattern, r1.timestamp AS Timestamp
-ORDER BY r1.timestamp LIMIT 200;
+ORDER BY r1.timestamp;
 
 // ============================================================================
 // G3 (code) = G3 (paper) -- Daytime Lateral + Large Email
@@ -61,13 +65,13 @@ UNWIND $batch AS uid
 MATCH (suspect:User {user_id: uid})-[r1:LOGGED_ON_TO]->(pc:PC)
       <-[r2:LOGGED_ON_TO]-(owner:User)
 WHERE owner.user_id <> uid AND r1.timestamp.hour >= 7 AND r1.timestamp.hour <= 17
-RETURN DISTINCT suspect.user_id AS Suspect, pc.pc_id AS Target_PC LIMIT 100;
+RETURN DISTINCT suspect.user_id AS Suspect, pc.pc_id AS Target_PC;
 
 // G3b: a large email sent (size > 100000), independent of timing/PC above
 UNWIND $batch AS uid
 MATCH (suspect:User {user_id: uid})-[r:SENT_EMAIL]->(email_node)
 WHERE r.size > 100000 AND r.activity = 'Send'
-RETURN DISTINCT suspect.user_id AS Suspect, r.size AS Email_Size LIMIT 100;
+RETURN DISTINCT suspect.user_id AS Suspect, r.size AS Email_Size;
 
 // ============================================================================
 // G5 (code) = G4 (paper) -- Mass-Email Near-Miss
@@ -82,7 +86,7 @@ WHERE r.activity = 'Send' AND r.size >= %d /* email_p99, computed at runtime */
 RETURN suspect.user_id AS Suspect, r.size AS Email_Size,
        r.timestamp.year AS Year, r.timestamp.week AS Week,
        'G5_MassEmail_NearMiss' AS Pattern, r.timestamp AS Timestamp
-ORDER BY r.size DESC LIMIT 300;
+ORDER BY r.size DESC;
 
 // ============================================================================
 // G6 (code) = G5 (paper) -- Attacker-Centric Lateral, After-Hours

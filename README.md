@@ -10,6 +10,10 @@ Journal of Intelligent Engineering and Systems. The code is released for
 reproducibility of the reported results. Please contact the authors before reuse
 or redistribution, and cite the paper once it is published.
 
+**On this branch:** the Layer 2 graph queries (G1-G4) are fixed to be exactly
+reproducible regardless of `PYTHONHASHSEED` -- see [`docs/REPRODUCE.md`](docs/REPRODUCE.md)
+for the one-line reproduce command and what changed.
+
 ## Structure
 
 ```
