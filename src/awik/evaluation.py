@@ -19,11 +19,11 @@ def evaluate_against_answerset(flagged_set, malicious_users, label):
 
 
 def enrichment(tp, pop, n_answer, population_size):
-    """Enrichment factor of a flagged set vs. the population base rate."""
+    """Enrichment (Eq. 12): precision of the flagged set / population base rate,
+    i.e. (TP/|S|) / (|A|/|U|). `pop` is |S|, the flagged-set size."""
     if pop == 0 or tp == 0:
         return 0.0
-    denom = (pop - tp) / (population_size - n_answer)
-    return (tp / n_answer) / denom if denom > 0 else float("inf")
+    return (tp / pop) / (n_answer / population_size)
 
 
 def enrichment_pvalue(tp, pop, n_answer, population_size):
