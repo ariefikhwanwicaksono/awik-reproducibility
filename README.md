@@ -19,7 +19,7 @@ data/raw/          CERT r6.2 raw logs + answer-key files (gitignored, see docs/d
 data/interim/      Checkpoints bridging notebooks (gitignored)
 results/figures/   Generated figures (gitignored)
 results/tables/    Generated tables (gitignored)
-docs/              Methodology, decision history, dataset setup, Neo4j load script
+docs/              Dataset setup, Neo4j load script, G1-G5 Cypher queries, random-seed inventory
 ```
 
 ## Notebooks
