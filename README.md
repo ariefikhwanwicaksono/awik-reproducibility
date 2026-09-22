@@ -5,6 +5,11 @@ Insider-threat detection on the CERT r6.2 dataset: two-stage spatial clustering
 routed into surgical contextual graph inspection (Layer 2) by a causal adaptive
 baseline. Evaluated against CERT r6.2's 6-actor Answer Set.
 
+This repository accompanies a manuscript under review at the International
+Journal of Intelligent Engineering and Systems. The code is released for
+reproducibility of the reported results. Please contact the authors before reuse
+or redistribution, and cite the paper once it is published.
+
 ## Structure
 
 ```
