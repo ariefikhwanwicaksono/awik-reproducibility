@@ -5,7 +5,7 @@
 // 200/200/100/100/300 on G1/G2/G3a/G3b/G4-code-G5) were removed -- they bound in
 // nearly every batch at this pipeline's population sizes, making "matched" counts a
 // truncated lower bound and the union dependent on PYTHONHASHSEED-driven batch order.
-// See fig3_validation/round2/REPORT.md and round3/REPORT.md.
+// See docs/REPRODUCE.md.
 //
 // NAMING NOTE (read this before matching against the paper's "G1-G5" numbering):
 // the code below uses G1, G2, G3, G5, G6 (G4 is permanently disabled -- it

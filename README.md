@@ -10,9 +10,13 @@ Journal of Intelligent Engineering and Systems. The code is released for
 reproducibility of the reported results. Please contact the authors before reuse
 or redistribution, and cite the paper once it is published.
 
-**On this branch:** the Layer 2 graph queries (G1-G4) are fixed to be exactly
-reproducible regardless of `PYTHONHASHSEED` -- see [`docs/REPRODUCE.md`](docs/REPRODUCE.md)
-for the one-line reproduce command and what changed.
+This pipeline runs under a single deterministic protocol: ISO week-year time
+indexing (`.weekYear`, 75 windows, 283,519 account-weeks -- not the earlier
+calendar-year indexing's 76/283,780), label-free re-derived Layer 1 parameters
+(`eps=0.3672`, `tau=37.44`), and Layer 2 graph queries (G1-G4) that run without a
+per-batch result cap and are therefore exactly reproducible regardless of
+`PYTHONHASHSEED`. See [`docs/REPRODUCE.md`](docs/REPRODUCE.md) for the one-line
+reproduce command and exactly what changed and why.
 
 ## Structure
 
@@ -68,12 +72,12 @@ statements that build the graph.
 
 | Component | File / path | Notes |
 |---|---|---|
-| Preprocessing: CERT r6.2 logs -> account-week observations | `docs/neo4j_load.cypher` (raw CSV -> graph) + `src/awik/features.py` (`DFS_QUERY`, `build_master_features`), run by `notebooks/01_data_extraction.ipynb` | Produces `data/interim/01_df_master.csv`; verified at 283,780 rows on the full r6.2 dataset. |
-| Weekly-window construction | `src/awik/features.py` (`DFS_QUERY`, `r.timestamp.week AS Week`) | Week = Neo4j's native ISO-calendar `.week` accessor on each event timestamp. No custom start/end cutoff; the observed 76 windows are whichever (Year, Week) pairs occur in the data. |
+| Preprocessing: CERT r6.2 logs -> account-week observations | `docs/neo4j_load.cypher` (raw CSV -> graph) + `src/awik/features.py` (`DFS_QUERY`, `build_master_features`), run by `notebooks/01_data_extraction.ipynb` | Produces `data/interim/01_df_master.csv`; verified at 283,519 rows on the full r6.2 dataset (ISO week-year indexing -- see next row). |
+| Weekly-window construction | `src/awik/features.py` (`DFS_QUERY`, `r.timestamp.weekYear AS Year`, `r.timestamp.week AS Week`) | Year+Week together form Neo4j's ISO week-year, not calendar year + ISO week number -- the two disagree at each year boundary, which used to produce two malformed labels (`2010-53`, `2011-52`) that collapse into one real ISO window each once `.weekYear` is used. 76 calendar-labelled windows become 75 ISO ones. |
 | Feature generation | `src/awik/features.py` | `ALL_FEATURES` (15 features: 5 OCEAN + 5 level + 5 causal deltas), `compute_delta` (4-week rolling deviation, causal by construction) |
 | PCA/scaling pipeline | `src/awik/layer1.py` (canonical), also inlined in `src/awik/layer1_ablation.py`, `src/awik/baseline_unsupervised.py` | `StandardScaler -> PCA(n_components=2, random_state=42)`, consistent everywhere. Repeated inline by design rather than factored into one shared function, since each caller varies which clustering step follows. |
 | Clustering configurations | `src/awik/layer1.py` (design A + variants EKS-2/EKS-3), `src/awik/layer1_ablation.py` (variants B/C/D/E), `src/awik/baseline_unsupervised.py` (IF/LOF) | 13 configurations in total across these files. |
-| Label-free parameter selection (k, eps, minPts) | `notebooks/02_layer1_justification.ipynb` | Reproduces `EPS_STAGE1=0.372`, close to the `DEFAULT_EPS=0.39` used in the main pipeline. |
+| Label-free parameter selection (k, eps, minPts) | `notebooks/02_layer1_justification.ipynb` | Reproduces `EPS_STAGE1=0.3658` (a separate, independently-derived value used only by the DB->DB architecture ablation), close to the `DEFAULT_EPS=0.3672` used in the main pipeline. |
 | Random seeds | `docs/reproducibility.md` | Full inventory: every file, every seeded call, every value (uniformly 42, except the deliberate `SEEDS=[0,1,7,21,42,100,123]` sweep in notebook 07). |
 | Adaptive-routing implementation | `src/awik/adaptive_baseline.py` | `compute_surge_signals` (causal, expanding/trailing-only stats) + `target_users` (persistence/co-occurrence/burst) |
 | G1-G5 Cypher queries, standalone | `docs/g1_g6_queries.cypher` | All 5 active patterns, extracted verbatim, runnable outside Python. Code uses the labels G1, G2, G3, G5, G6 (G4 is permanently disabled -- see `features.py`'s docstring); the manuscript renumbers to close that gap (code G5 -> paper G4, code G6 -> paper G5) -- full mapping in this file's own header comment. |

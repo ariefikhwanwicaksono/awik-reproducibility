@@ -38,18 +38,20 @@ ANSWER_SET = {
 }
 MALICIOUS_USERS = set(ANSWER_SET.keys())
 
-# k for K-Means (Layer 1). Local-max stable across 13/16 sampled weeks.
+# k for K-Means (Layer 1). Local-max stable across 12/15 sampled weeks (ISO week-year
+# indexing, 75 total windows -- see features.py's docstring for why 75, not 76).
 DEFAULT_K = 4
-# DBSCAN eps. Median within-cluster k-distance knee, label-free (16 sampled weeks).
-DEFAULT_EPS = 0.39
+# DBSCAN eps. Median within-cluster k-distance knee, label-free (15 sampled weeks,
+# IQR [0.3554, 0.4308]).
+DEFAULT_EPS = 0.3672
 # DBSCAN min_samples = 2 * PCA dims (Sander et al. 1998).
 DEFAULT_MINPTS = 4
 
 # Mahalanobis^2 flagging threshold. Empirical, fixed: median of the 99th-percentile
-# within-cluster Mahalanobis^2 across 61 cluster-weeks, label-free (IQR [22.55, 79.49]).
+# within-cluster Mahalanobis^2 across 57 cluster-weeks, label-free (IQR [28.26, 98.28]).
 # NOT the theoretical chi2.ppf(0.99, df=2)=9.21 -- rejected because Shapiro-Wilk
-# rejects PC1 normality in 91.8% of cluster-weeks. See the accompanying manuscript.
-DEFAULT_MAH_THRESH = 31.75
+# rejects PC1 normality in 94.7% of cluster-weeks. See the accompanying manuscript.
+DEFAULT_MAH_THRESH = 37.44
 
 # Neo4j batch size (avoids the ~716MB per-transaction OOM limit).
 BATCH_SIZE = 50

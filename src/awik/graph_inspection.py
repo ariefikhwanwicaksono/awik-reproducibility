@@ -12,8 +12,7 @@ and the union (`graph_confirmed`) additionally became dependent on `PYTHONHASHSE
 through batch composition. Both LIMIT clauses and that hash dependency are removed
 here; callers must now pass explicitly sorted candidate lists (never a bare
 `list(some_set)`) so results are reproducible independent of Python's set-iteration
-order. See fig3_validation/round2/REPORT.md and round3/REPORT.md for the
-measurements this fix is based on.
+order. See docs/REPRODUCE.md for the measurements this fix is based on.
 """
 
 import pandas as pd

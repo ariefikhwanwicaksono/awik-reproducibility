@@ -3,6 +3,15 @@
 VISITED_URL / n_new_url_domain is intentionally excluded (see Section 4.9 of the
 paper on synthetic-scenario correlation risk). Restored as an ablation in
 notebooks/06_baselines_ablation.ipynb (destination-novelty, Section 4.6).
+
+Week indexing uses Neo4j's ISO week-year (`.weekYear`), not calendar year (`.year`).
+Combining calendar year with an ISO week number mislabels the last days of a calendar
+year that ISO already assigns to the following year's week 1 (and the symmetric case at
+a year's start), producing two malformed windows (2010-53, 2011-52) that collapse into
+one real ISO window each once `.weekYear` is used -- 76 calendar-labelled windows become
+75 ISO ones, and 283,780 calendar-labelled rows become 283,519 (2,922 rows affected via
+the delta features' trailing window at the two year boundaries). See the accompanying
+manuscript, Eq. (7) and Sect. 4.1.
 """
 
 import os
@@ -29,7 +38,7 @@ RETURN
     u.user_id AS User_ID, u.role AS Role, u.department AS Department,
     u.O AS Openness, u.C AS Conscientiousness, u.E AS Extraversion,
     u.A AS Agreeableness, u.N AS Neuroticism,
-    r.timestamp.year AS Year, r.timestamp.week AS Week,
+    r.timestamp.weekYear AS Year, r.timestamp.week AS Week,
     COUNT(CASE WHEN activity_type='LOGGED_ON_TO'
                AND (r.timestamp.hour>=18 OR r.timestamp.hour<=6)
                THEN 1 END) AS n_afterhourlogon,
