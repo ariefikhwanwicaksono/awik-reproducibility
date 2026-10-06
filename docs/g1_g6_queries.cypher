@@ -23,7 +23,7 @@
 
 // ============================================================================
 // G1 (code) = G1 (paper) -- After-Hours Lateral Login
-// Suspect logs into another user's PC outside 18:00-06:00.
+// Suspect logs into another user's PC between 18:00 and 06:00 (after-hours).
 // ============================================================================
 UNWIND $batch AS uid
 MATCH (suspect:User {user_id: uid})-[r1:LOGGED_ON_TO]->(pc:PC)

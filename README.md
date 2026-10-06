@@ -1,4 +1,4 @@
-# AWIK -- Adaptive Weighted Insider Knowledge
+# AWIK -- Adaptive Windowed Insider Knowledge
 
 Insider-threat detection on the CERT r6.2 dataset: two-stage spatial clustering
 (Layer 1: K-Means -> DBSCAN -> Mahalanobis, all parameters derived label-free)
