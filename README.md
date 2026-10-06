@@ -6,9 +6,14 @@ routed into surgical contextual graph inspection (Layer 2) by a causal adaptive
 baseline. Evaluated against CERT r6.2's 6-actor Answer Set.
 
 This repository accompanies a manuscript under review at the International
-Journal of Intelligent Engineering and Systems. The code is released for
-reproducibility of the reported results. Please contact the authors before reuse
-or redistribution, and cite the paper once it is published.
+Journal of Intelligent Engineering and Systems. It is released solely so
+reviewers and readers can verify the reported results -- no license is
+granted for any other use. In particular, this code, its derivatives, or the
+specific parameter values/architectural choices in this repository may not be
+used in, or form the basis of, another publication on insider-threat
+detection or a similar topic without the authors' prior written permission.
+Contact the authors before any reuse or redistribution, and cite the paper
+once it is published.
 
 This pipeline runs under a single deterministic protocol: ISO week-year time
 indexing (`.weekYear`, 75 windows, 283,519 account-weeks -- not the earlier
