@@ -28,6 +28,8 @@ reproduce command and exactly what changed and why.
 ```
 src/awik/          Reusable pipeline code (Layer 1, Layer 2, baselines, evaluation)
 notebooks/         Numbered notebooks, run in order (01 -> 08)
+scripts/           Standalone verification scripts (e.g. Section 4.5's full-population
+                   G5 check), runnable independently of the full notebook sequence
 data/raw/          CERT r6.2 raw logs + answer-key files (gitignored, see docs/dataset.md)
 data/interim/      Checkpoints bridging notebooks (gitignored)
 results/figures/   Generated figures (gitignored)

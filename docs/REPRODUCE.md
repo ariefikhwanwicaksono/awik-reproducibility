@@ -110,11 +110,25 @@ Verified by running notebooks 04-05 end-to-end against a live Neo4j instance
 loaded with the complete CERT r6.2 graph (4,000 User nodes, confirmed before
 running):
 
-- `|G5(paper)|` matches: 165 -> **178** (not a simple reduction -- see below)
-- `|Gc|` (graph-confirmed, union G1-G5): 293 -> **300**
-- Full system `|L1 u Gc|`: 1,176 -> **1,182**
+- `|G5(paper)|` matches: 165 -> **178** (7.5x enrichment, p=0.026) -- not a
+  simple reduction, see below
+- `|Gc|` (graph-confirmed, union G1-G5, "Layer 2" in Table 5): 293 -> **300**
+  (4.4x, p=0.069)
+- Full system `|L1 u Gc|`: 1,176 -> **1,182** (2.3x, p=0.067)
 - Full-system recall: unchanged at 4/6 (CMP2946, MBG3183 via Layer 1;
   PLJ1771, CDE1846 via G5)
+- Precision 4/1,182 = 0.34%; FPR 29.5%; specificity 70.5%; number-needed-to-
+  investigate 295.5; Layer 2 precision 2/300 = 0.67% (Layer 1 unchanged at
+  2/1,056 = 0.19%)
+- Table 6 (flagged population by mechanism), the three rows that move:
+  Spatial+Graph 41 -> **42**, Spatial-only 883 -> **882**, Graph-only 99 ->
+  **105** (routing pool 160 and the other four rows are unaffected); see the
+  account-level reconciliation below for why the net totals move by less
+  than the raw G5 change.
+- This causal fix only touches `src/awik/graph_inspection.py`'s G5(paper)/
+  code-G6 path on the CERT r6.2 pipeline; the separate r5.2 comparison (not
+  part of this repo -- computed outside it entirely) is structurally
+  unaffected, since it never calls this code.
 
 A prior sensitivity check (`fig3_validation/round8/item11_causal_owner_all165.py`)
 only re-verified whether the original 165 G5 matches survive a causal
@@ -134,6 +148,43 @@ threshold. This is an inherent cold-start property of a strictly causal
 estimator, not a bug (the type-mismatch bug that caused an initial all-zero
 result, `datetime` vs. `localdatetime` on a timezone-naive property, was
 caught and fixed before this result was produced).
+
+## Full parameter reference
+
+Everything needed to regenerate this protocol's numbers from a fresh clone, in
+one place (all label-free except where noted; derivations are in
+`notebooks/02_layer1_justification.ipynb` and `src/awik/config.py`):
+
+| Component | Value | Source |
+|---|---|---|
+| PCA | 2 components, `random_state=42` | `src/awik/layer1.py` |
+| K-Means (Layer 1 macro-role partition) | `k=4`, `random_state=42` | `config.DEFAULT_K` |
+| DBSCAN (Layer 1 within-cluster) | `eps=0.3672`, `minPts=4` (`=2*PCA dims`, Sander et al. 1998) | `config.DEFAULT_EPS`, `config.DEFAULT_MINPTS` |
+| Mahalanobis² flagging threshold | `tau=37.44` (empirical; chi2.ppf(0.99, df=2)=9.21 rejected -- Shapiro-Wilk rejects PC1 normality in 94.7% of cluster-weeks) | `config.DEFAULT_MAH_THRESH` |
+| Adaptive baseline (surge detection) | causal/expanding window, strictly prior weeks only (`.expanding().shift(1)`); a channel surges when `delta > expanding_mean + 2*expanding_std`, across 3 channels (after-hours logon, USB, email size); email channel additionally gated on >=8 prior observations | `src/awik/adaptive_baseline.py:compute_surge_signals` |
+| Targeting (routing-pool inclusion rule) | union of persistence (surged in >= `k_persist` distinct weeks, `k_persist` derived per-dataset from a Bonferroni-style expected-false-positive count, not a fixed constant), co-occurrence (>=2 of the 3 channels surge together in >= `k_cooccur=2` weeks), and burst (all 3 channels surge together in >= `k_burst=3`... i.e. `max_cooccur>=3`, meaning in at least one week) | `src/awik/adaptive_baseline.py:target_users` |
+| Routing pool size | empirical output, not a tunable input: **160/4,000 (4.0%)** under P* | notebook 04 |
+| G1-G5 Cypher queries | `docs/g1_g6_queries.cypher` (verbatim from `src/awik/graph_inspection.py`); no per-batch `LIMIT`; PC ownership (G5(paper)/code-G6) is causal, see above | `src/awik/graph_inspection.py` |
+| Seeds | `42` everywhere a seed is used (`PCA`, `KMeans`), no exceptions; one deliberate sweep (`SEEDS=[0,1,7,21,42,100,123]`) tests sensitivity to this choice | `docs/reproducibility.md` |
+
+## Section 4.5: G5 applied to the full population, without surge gating
+
+`scripts/sect4_5_full_population_g5.py` reproduces the manuscript's "G5 matches
+N accounts (X%)" figure applied across every (user, week) pair in the full
+account-week universe (283,519 pairs, all 4,000 users, all 75 weeks), not just
+the surge-gated population G5 normally draws from. It only needs notebook 01's
+checkpoint (`data/interim/01_df_master.csv`) and a live Neo4j instance, so it
+can be run independently of notebooks 02-08:
+
+```bash
+export NEO4J_PASSWORD=yourpassword
+python scripts/sect4_5_full_population_g5.py
+```
+
+Under causal ownership: **203/4,000 accounts (5.08%)**, up from the non-causal
+baseline of 183/4,000 (4.58%) -- the same cold-start-driven increase described
+above, at the full-population scale. Answer Set true positives unchanged (2/6:
+CDE1846, PLJ1771).
 
 ## Known, tested, and left as-is
 
