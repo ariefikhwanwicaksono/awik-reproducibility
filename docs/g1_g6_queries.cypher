@@ -96,8 +96,13 @@ ORDER BY r.size DESC;
 // Needs the PC-ownership helper query below first.
 // ============================================================================
 
-// Helper: majority-login owner per PC (>=50% share of LOGGED_ON_TO events)
+// Helper: majority-login owner per PC (>=50% share of LOGGED_ON_TO events),
+// causal -- $year/$week select an ISO week, and only logons strictly before
+// that week's start are counted. Run once per distinct (year, week) present
+// in the surge population (src/awik/graph_inspection.py:fetch_owner_of_by_week),
+// not once globally -- see docs/REPRODUCE.md for why.
 MATCH (u:User)-[r:LOGGED_ON_TO]->(pc:PC)
+WHERE r.timestamp < localdatetime({date: date({year: $year, week: $week, dayOfWeek: 1})})
 WITH pc, u, count(r) AS n
 WITH pc, sum(n) AS total, collect({u:u.user_id, n:n}) AS L
 UNWIND L AS x WITH pc, total, x ORDER BY x.n DESC

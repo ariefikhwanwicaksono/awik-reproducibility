@@ -13,6 +13,14 @@ through batch composition. Both LIMIT clauses and that hash dependency are remov
 here; callers must now pass explicitly sorted candidate lists (never a bare
 `list(some_set)`) so results are reproducible independent of Python's set-iteration
 order. See docs/REPRODUCE.md for the measurements this fix is based on.
+
+Q_OWNER (backing the code-G6/paper-G5 query) determines PC ownership causally: for
+each (user, ISO week) pair under test, majority ownership (>=50% of historical
+logons) is computed only from logons strictly before that week's start -- never from
+logons on or after it. This was previously computed once, globally, over the entire
+dataset (a non-causal design, structurally similar to the adaptive-baseline leak
+fixed elsewhere in this pipeline for R2-3); see docs/REPRODUCE.md for the sensitivity
+test this change is based on and the numbers it changed.
 """
 
 import pandas as pd
@@ -65,6 +73,7 @@ RETURN DISTINCT suspect.user_id AS Suspect, r.size AS Email_Size
 
 Q_OWNER = """
 MATCH (u:User)-[r:LOGGED_ON_TO]->(pc:PC)
+WHERE r.timestamp < localdatetime({date: date({year: $year, week: $week, dayOfWeek: 1})})
 WITH pc, u, count(r) AS n
 WITH pc, sum(n) AS total, collect({u:u.user_id, n:n}) AS L
 UNWIND L AS x WITH pc, total, x ORDER BY x.n DESC
@@ -107,8 +116,14 @@ ORDER BY r.size DESC
 """ % int(email_p99))
 
 
-def fetch_owner_of(conn):
-    return dict(conn.query_to_dataframe(Q_OWNER).values)
+def fetch_owner_of_by_week(conn, year_weeks):
+    """Causal PC ownership, one query per distinct ISO (year, week) in year_weeks:
+    each query's majority-owner determination uses only logons strictly before that
+    week's start. Returns {(year, week): {pc_id: owner_user_id}}."""
+    return {
+        (year, week): dict(conn.query_to_dataframe(Q_OWNER, {"year": year, "week": week}).values)
+        for year, week in sorted(set(year_weeks))
+    }
 
 
 def run_g1_g5(conn, candidates_graph, email_near_miss, q_g5, batch_size=50):
@@ -124,9 +139,12 @@ def run_g1_g5(conn, candidates_graph, email_near_miss, q_g5, batch_size=50):
     return df_g1, df_g2, df_g3a, df_g3b, df_g5
 
 
-def run_g6(conn, surge_pairs, owner_of, batch_size=200):
+def run_g6(conn, surge_pairs, owner_of_by_week, batch_size=200):
     """G6 draws from the full surge population (users_surged), not candidates_graph --
-    it self-confirms the (user, week) pairs already flagged by the adaptive baseline."""
+    it self-confirms the (user, week) pairs already flagged by the adaptive baseline.
+    owner_of_by_week: {(year, week): {pc_id: owner_user_id}} from fetch_owner_of_by_week,
+    so ownership for each row is looked up using only that row's own (Year, Week) --
+    i.e. logons strictly before that week's start, never the week itself or later."""
     parts = []
     for i in range(0, len(surge_pairs), batch_size):
         b = conn.query_to_dataframe(Q_G6, {"batch": surge_pairs[i:i + batch_size]})
@@ -135,7 +153,9 @@ def run_g6(conn, surge_pairs, owner_of, batch_size=200):
     df_raw = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
     if df_raw.empty:
         return pd.DataFrame()
-    df_raw['owner'] = df_raw['PC'].map(owner_of)
+    df_raw['owner'] = df_raw.apply(
+        lambda row: owner_of_by_week.get((int(row['Year']), int(row['Week'])), {}).get(row['PC']),
+        axis=1)
     df = df_raw[(df_raw['owner'].notna()) & (df_raw['owner'] != df_raw['Suspect'])].copy()
     if df.empty:
         return pd.DataFrame()

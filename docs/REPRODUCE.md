@@ -91,6 +91,50 @@ comparisons (notably IF+NSGA-II), and some ablation-table rows did change -- see
 manuscript's Tables 4-11 for the current, P*-consistent values, which are what this
 protocol reproduces.
 
+## Causal PC ownership (G5(paper)/code-G6)
+
+`Q_OWNER` in `graph_inspection.py` previously computed majority PC ownership
+(>=50% of historical logons) once, globally, over the *entire* dataset, with no
+cutoff relative to the week being tested -- a non-causal design, structurally
+similar to the adaptive-baseline leak fixed elsewhere in this pipeline for
+R2-3. A causally-restricted (prior-weeks-only) alternative was tested against
+all 165 of G5's matched accounts: 161/165 accounts were unaffected, and the 4
+that changed were not Answer Set accounts (CDE1846 and PLJ1771 specifically
+were unaffected in every tested week). Following Reviewer 2's request (R2-3),
+**the causal rule is now the default**, not a sensitivity check: `Q_OWNER`
+takes `$year`/`$week` parameters and is queried once per distinct ISO week
+present in the surge population (`fetch_owner_of_by_week`), using only logons
+strictly before that week's start.
+
+Verified by running notebooks 04-05 end-to-end against a live Neo4j instance
+loaded with the complete CERT r6.2 graph (4,000 User nodes, confirmed before
+running):
+
+- `|G5(paper)|` matches: 165 -> **178** (not a simple reduction -- see below)
+- `|Gc|` (graph-confirmed, union G1-G5): 293 -> **300**
+- Full system `|L1 u Gc|`: 1,176 -> **1,182**
+- Full-system recall: unchanged at 4/6 (CMP2946, MBG3183 via Layer 1;
+  PLJ1771, CDE1846 via G5)
+
+A prior sensitivity check (`fig3_validation/round8/item11_causal_owner_all165.py`)
+only re-verified whether the original 165 G5 matches survive a causal
+re-check -- structurally a one-directional filter that can only remove
+accounts, never discover new ones, since it starts from the non-causal
+result and filters it. A true end-to-end regeneration (this fix) can also
+surface accounts that never matched non-causally at all. Diffing the two
+match sets directly: 163/165 of the original matches survive (only
+`MTS0465` and `TZY3133` drop, not the 4 the narrower test implied), and 15
+new accounts appear (`BAL2366, BHE1709, DNV1964, FPV3755, HET0359, HLC1172,
+ISR1364, JBB0847, JON0788, NNF3968, RDA3381, REB0123, SGC2111, SLM1119,
+YHB2355`). All 15 new accounts' earliest G6 evidence event falls between
+2010-01-11 and 2010-01-22 -- the first ~3 ISO weeks of the dataset, where a
+causal, prior-weeks-only ownership estimate has almost no history to work
+from and a PC used by just two people trivially crosses the 50% majority
+threshold. This is an inherent cold-start property of a strictly causal
+estimator, not a bug (the type-mismatch bug that caused an initial all-zero
+result, `datetime` vs. `localdatetime` on a timezone-naive property, was
+caught and fixed before this result was produced).
+
 ## Known, tested, and left as-is
 
 - **Config C (DBSCAN standalone) in the architecture ablation**: its recall under P*
@@ -98,16 +142,6 @@ protocol reproduces.
   value itself (0.3672 vs. the old 0.39) -- confirmed by rerunning that one
   configuration at `eps=0.39` with every other P* change held fixed, which exactly
   reproduces the 0.17/1-true-positive result. Not a data or protocol artifact.
-- **G5(paper)/code-G6's PC-ownership determination** (`Q_OWNER` in
-  `graph_inspection.py`) computes majority ownership over the *entire* dataset, with
-  no cutoff relative to the week being tested -- a non-causal design, structurally
-  similar to the adaptive-baseline leak fixed elsewhere in this pipeline. Tested
-  against all 165 of G5's matched accounts with a causally-restricted (prior-weeks-
-  only) alternative: 161/165 accounts are unaffected, and the 4 that do change are
-  not Answer Set accounts -- CDE1846 and PLJ1771 specifically are unaffected in every
-  tested week. Left as a known, quantified limitation rather than patched, since
-  patching would need its own re-validation pass; revisit before treating `Q_OWNER`
-  as causal in any future extension of this pipeline.
 - **Sampling-offset sensitivity**: the label-free parameter derivation samples every
   5th week starting from index 0; the other 4 possible starting offsets (1-4) give
   slightly different `eps`/`tau` and, in 2 of those 4 cases, a full-system recall of
